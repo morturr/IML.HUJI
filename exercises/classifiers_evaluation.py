@@ -1,3 +1,5 @@
+import numpy as np
+
 from IMLearn.learners.classifiers import Perceptron, LDA, GaussianNaiveBayes
 from typing import Tuple
 from utils import *
@@ -38,14 +40,22 @@ def run_perceptron():
     """
     for n, f in [("Linearly Separable", "linearly_separable.npy"), ("Linearly Inseparable", "linearly_inseparable.npy")]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset("../datasets/" + f)
 
         # Fit Perceptron and record loss in each fit iteration
         losses = []
-        raise NotImplementedError()
+        def loss_callback(perc : Perceptron, x : np.ndarray, y_sample : int):
+            losses.append(perc._loss(X, y))
+
+        _perc = Perceptron(callback=loss_callback)
+        _perc.fit(X, y)
 
         # Plot figure of loss as function of fitting iteration
-        raise NotImplementedError()
+        fig1 = go.Figure(go.Scatter(y=losses))
+        fig1.update_layout(title=n,
+                           xaxis_title="Number of iterations",
+                           yaxis_title="Missclassification error")
+        fig1.show()
 
 
 def get_ellipse(mu: np.ndarray, cov: np.ndarray):
@@ -79,28 +89,54 @@ def compare_gaussian_classifiers():
     """
     for f in ["gaussian1.npy", "gaussian2.npy"]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset("../datasets/" + f)
 
         # Fit models and predict over training set
-        raise NotImplementedError()
+        lda = LDA()
+        lda.fit(X, y)
+        y_pred_lda = lda.predict(X)
+
+        naive_bayes = GaussianNaiveBayes()
+        naive_bayes.fit(X, y)
+        y_pred_nb = naive_bayes.predict(X)
 
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         # Create subplots
         from IMLearn.metrics import accuracy
-        raise NotImplementedError()
+        q2_fig = make_subplots(rows=1, cols=2,
+                subplot_titles=(
+                f"Naive Bayes: accuracy ={accuracy(y, y_pred_nb)}",
+                f"LDA: accuracy ={accuracy(y, y_pred_lda)}"))
+        q2_fig.update_layout(title="Naive Base and LDA accuracy on " + f,
+                             title_x=0.5)
 
         # Add traces for data-points setting symbols and colors
-        raise NotImplementedError()
+
+        nb_fig = go.Scatter(x=X[:, 0], y=X[:, 1], mode="markers",
+                           marker=dict(color=y_pred_nb, symbol=y))
+        lda_fig = go.Scatter(x=X[:, 0], y=X[:, 1], mode="markers",
+                           marker=dict(color=y_pred_lda, symbol=y))
+        q2_fig.append_trace(nb_fig, row=1, col=1)
+        q2_fig.append_trace(lda_fig, row=1, col=2)
 
         # Add `X` dots specifying fitted Gaussians' means
-        raise NotImplementedError()
+        q2_fig.append_trace(go.Scatter(x=naive_bayes.mu_[:, 0], y=naive_bayes.mu_[:, 1], mode="markers",
+                                    marker=dict(color="black", symbol="x")), row=1, col=1)
+        q2_fig.append_trace(go.Scatter(x=lda.mu_[:, 0], y=lda.mu_[:, 1], mode="markers",
+                                    marker=dict(color="black", symbol="x")), row=1, col=2)
 
         # Add ellipses depicting the covariances of the fitted Gaussians
-        raise NotImplementedError()
+        for i in range(len(naive_bayes.mu_)):
+            q2_fig.append_trace(get_ellipse(naive_bayes.mu_[i], np.diagflat(naive_bayes.vars_[i, :])), row=1, col=1)
 
+        for mu in lda.mu_:
+            q2_fig.append_trace(get_ellipse(mu, lda.cov_), row=1, col=2)
+        q2_fig.update_layout(showlegend=False)
+        q2_fig.show()
 
 if __name__ == '__main__':
     np.random.seed(0)
     run_perceptron()
+    a = 3
     compare_gaussian_classifiers()
