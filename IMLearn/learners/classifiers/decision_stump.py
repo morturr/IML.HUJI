@@ -3,7 +3,7 @@ from typing import Tuple, NoReturn
 from ...base import BaseEstimator
 import numpy as np
 from itertools import product
-
+from ...metrics import misclassification_error
 
 class DecisionStump(BaseEstimator):
     """
@@ -39,7 +39,40 @@ class DecisionStump(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        # thr_miss_arr = np.zeros((X.shape[1], 2, 2))
+        # for feature in range(X.shape[1]):
+        #     for sign in([-1, 1]):
+        #         val = self._find_threshold(X[:, feature], y, sign)
+        #         thr_miss_arr[feature, 0, (int)((sign + 1) / 2)] = val[0]
+        #         thr_miss_arr[feature, 1, (int)((sign + 1) / 2)] = val [1]
+        #
+        # idx = np.argmin(thr_miss_arr, axis=1)
+        # self.threshold_ = idx[0]
+        # self.j_ = idx[1]
+        # self.sign_ = idx[2] * 2 - 1
+
+        thr_miss_arr_plus = np.zeros((X.shape[1], 2))
+        thr_miss_arr_minus = np.zeros((X.shape[1], 2))
+        for j in range(X.shape[1]):
+            val = self._find_threshold(X[:, j], y, -1)
+            thr_miss_arr_minus[j, 0], thr_miss_arr_minus[j, 1] = val[0], val[1]
+            val = self._find_threshold(X[:, j], y, 1)
+            thr_miss_arr_plus[j, 0], thr_miss_arr_plus[j, 1] = val[0], val[1]
+
+        minus_err, minus_idx = np.min(thr_miss_arr_minus[:, 1]), np.argmin(thr_miss_arr_minus[:, 1])
+        plus_err, plus_idx = np.min(thr_miss_arr_plus[:, 1]), np.argmin(thr_miss_arr_plus[:, 1])
+
+        if minus_err <= plus_err:
+            self.sign_ = -1
+            self.j_ = minus_idx
+            self.threshold_ = thr_miss_arr_minus[minus_idx, 0]
+
+        else:
+            self.sign_ = 1
+            self.j_ = plus_idx
+            self.threshold_ = thr_miss_arr_plus[plus_idx, 0]
+
+        a = 9
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -49,9 +82,6 @@ class DecisionStump(BaseEstimator):
         ----------
         X : ndarray of shape (n_samples, n_features)
             Input data to predict responses for
-
-        y : ndarray of shape (n_samples, )
-            Responses of input data to fit to
 
         Returns
         -------
@@ -63,7 +93,11 @@ class DecisionStump(BaseEstimator):
         Feature values strictly below threshold are predicted as `-sign` whereas values which equal
         to or above the threshold are predicted as `sign`
         """
-        raise NotImplementedError()
+        responses = np.zeros(X.shape[0])
+        responses[X[:, self.j_] >= self.threshold_] = self.sign_
+        responses[X[:, self.j_] < self.threshold_] = -self.sign_
+
+        return responses
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray, sign: int) -> Tuple[float, float]:
         """
@@ -95,7 +129,24 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
-        raise NotImplementedError()
+
+        val_lab = np.column_stack((values, labels))
+        val_lab = val_lab[val_lab[:, 0].argsort()]
+        pred_lab = np.zeros(labels.shape[0])
+        min_thr_err = 1
+        best_thr = 0
+
+        for thr in val_lab[:, 0]:
+            pred_lab[val_lab[:, 0] >= thr] = sign
+            pred_lab[val_lab[:, 0] < thr] = -sign
+            misses = np.sign(pred_lab) != np.sign(val_lab[:, 1])
+            thr_err = np.sum(np.abs(val_lab[:, 1][misses])) / np.sum(np.abs(val_lab[:, 1]))
+            if thr_err < min_thr_err:
+                min_thr_err = thr_err
+                best_thr = thr
+
+        return (best_thr, min_thr_err)
+
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -114,4 +165,7 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        y_pred = self.predict(X)
+        misses = np.sign(y_pred) != np.sign(y)
+        loss = np.sum(np.abs(y[misses]))
+        return loss

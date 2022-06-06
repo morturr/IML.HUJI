@@ -45,7 +45,6 @@ def test_univariate_gaussian():
         yaxis_title="Sample PDF value"
     )
     q3_fig.show()
-    a = 5
 
 
 

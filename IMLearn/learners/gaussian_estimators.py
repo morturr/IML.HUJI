@@ -201,7 +201,7 @@ class MultivariateGaussian:
         diffs = np.zeros(np.shape(X))
 
         for i in range(n_features):
-            diffs[i, :] = X[i, :] - self.mu_[i]
+            diffs[:, i] = X[:, i] - self.mu_[i]
 
         pdfs = np.exp(-1/2 * diffs @ np.linalg.inv(self.cov_)*diffs) / \
             np.sqrt(np.power(2 * np.pi, n_features) * np.linalg.slogdet(self.cov_)[1])
